@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Runner Live Tracking</title>
+
+  <!-- Firebase v8 -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+    body{
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background:#f4f4f4;
+      padding:20px;
+    }
+    input{
+      padding:12px;
+      font-size:18px;
+      width:200px;
+    }
+    button{
+      padding:12px 20px;
+      font-size:18px;
+      margin-top:10px;
+      background:#2196F3;
+      color:white;
+      border:none;
+      border-radius:5px;
+    }
+    #status{
+      margin-top:15px;
+      font-size:16px;
+      color:green;
+    }
+  </style>
+</head>
+
+<body>
+
+<h2>🏃 Runner Live Tracking</h2>
+
+<input id="runnerId" placeholder="Enter Bib Number" />
+<br>
+<button onclick="startTracking()">Start Tracking</button>
+
+<p id="status">Waiting for Bib Number...</p>
+
+<script>
+/* 🔥 FIREBASE CONFIG */
+firebase.initializeApp({
+ apiKey: "AIzaSyABP3VjM-YtfQZ2FP2YdFydi2BiM6i_9Ww",
+  databaseURL: "https://run-tracker-14a7e-default-rtdb.firebaseio.com"
+});
+
+let watchId = null;
+let lastUpdate = 0;
+const UPDATE_INTERVAL = 10000; // 10 seconds
+
+function startTracking(){
+
+  const runnerId = document.getElementById("runnerId").value.trim();
+
+  if(!runnerId){
+    alert("Please enter Bib Number");
+    return;
+  }
+
+  document.getElementById("status").innerHTML =
+    "📡 Tracking started...";
+
+  if(!navigator.geolocation){
+    alert("GPS not supported on this device");
+    return;
+  }
+
+  watchId = navigator.geolocation.watchPosition(
+
+    position => {
+
+      const now = Date.now();
+
+      if(now - lastUpdate < UPDATE_INTERVAL) return;
+      lastUpdate = now;
+
+      /* SAVE POINT (PATH HISTORY) */
+      firebase.database()
+        .ref("runners/" + runnerId + "/points/" + now)
+        .set({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          accuracy: position.coords.accuracy
+        });
+
+      document.getElementById("status").innerHTML =
+        "✅ Last update: " +
+        new Date(now).toLocaleTimeString();
+
+    },
+
+    error => {
+      document.getElementById("status").innerHTML =
+        "⚠️ GPS error. Retrying...";
+    },
+
+    {
+      enableHighAccuracy:true,
+      maximumAge:5000,
+      timeout:15000
+    }
+
+  );
+}
+</script>
+
+</body>
+</html>
