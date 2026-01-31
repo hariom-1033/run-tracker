@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Live Runner Map</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+  <style>#map{height:100vh}</style>
+</head>
+
+<body>
+<div id="map"></div>
+
+<script>
+/* 🔥 Firebase */
+firebase.initializeApp({
+ apiKey: "AIzaSyABP3VjM-YtfQZ2FP2YdFydi2BiM6i_9Ww",
+  databaseURL: "https://run-tracker-14a7e-default-rtdb.firebaseio.com"
+});
+
+/* 🗺️ Map */
+const map = L.map('map').setView([20.5937, 78.9629], 5);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
+  .addTo(map);
+
+const markers = {};
+let activePath = null;
+
+/* 📍 LIVE MARKERS */
+firebase.database().ref("runners").on("value", snap => {
+  snap.forEach(runner => {
+    const id = runner.key;
+    const points = runner.child("points");
+
+    if (!points.exists()) return;
+
+    const latest = Object.values(points.val()).pop();
+
+    if (!markers[id]) {
+      markers[id] = L.marker([latest.lat, latest.lng])
+        .addTo(map)
+        .bindPopup("Runner " + id)
+        .on("click", () => drawPath(id));
+    } else {
+      markers[id].setLatLng([latest.lat, latest.lng]);
+    }
+  });
+});
+
+/* 🧵 DRAW PATH FUNCTION */
+function drawPath(runnerId) {
+
+  if (activePath) {
+    map.removeLayer(activePath);
+  }
+
+  firebase.database()
+    .ref("runners/" + runnerId + "/points")
+    .once("value", snap => {
+
+      const coords = [];
+
+      snap.forEach(p => {
+        coords.push([p.val().lat, p.val().lng]);
+      });
+
+      activePath = L.polyline(coords, {
+        color: 'red',
+        weight: 4
+      }).addTo(map);
+
+      map.fitBounds(activePath.getBounds());
+    });
+}
+</script>
+</body>
+</html>
